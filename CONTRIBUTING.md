@@ -1,59 +1,166 @@
 # Contributing Guidelines
 
-Thank you for your interest in contributing to our project. Whether it's a bug report, new feature, correction, or additional
-documentation, we greatly value feedback and contributions from our community.
-
-Please read through this document before submitting any issues or pull requests to ensure we have all the necessary
-information to effectively respond to your bug report or contribution.
-
-
-## Reporting Bugs/Feature Requests
-
-We welcome you to use the GitHub issue tracker to report bugs or suggest features.
-
-When filing an issue, please check existing open, or recently closed, issues to make sure somebody else hasn't already
-reported the issue. Please try to include as much information as you can. Details like these are incredibly useful:
-
-* A reproducible test case or series of steps
-* The version of our code being used
-* Any modifications you've made relevant to the bug
-* Anything unusual about your environment or deployment
-
-
-## Contributing via Pull Requests
-Contributions via pull requests are much appreciated. Before sending us a pull request, please ensure that:
-
-1. You are working against the latest source on the *main* branch.
-2. You check existing open, and recently merged, pull requests to make sure someone else hasn't addressed the problem already.
-3. You open an issue to discuss any significant work - we would hate for your time to be wasted.
-
-To send us a pull request, please:
-
-1. Fork the repository.
-2. Modify the source; please focus on the specific change you are contributing. If you also reformat all the code, it will be hard for us to focus on your change.
-3. Ensure local tests pass.
-4. Commit to your fork using clear commit messages.
-5. Send us a pull request, answering any default questions in the pull request interface.
-6. Pay attention to any automated CI failures reported in the pull request, and stay involved in the conversation.
-
-GitHub provides additional document on [forking a repository](https://help.github.com/articles/fork-a-repo/) and
-[creating a pull request](https://help.github.com/articles/creating-a-pull-request/).
-
-
-## Finding contributions to work on
-Looking at the existing issues is a great way to find something to contribute on. As our projects, by default, use the default GitHub issue labels (enhancement/bug/duplicate/help wanted/invalid/question/wontfix), looking at any 'help wanted' issues is a great place to start.
-
+We welcome contributions to the Terraform Orchestration and Automation Framework! This document provides guidelines for contributing to this project.
 
 ## Code of Conduct
-This project has adopted the [Amazon Open Source Code of Conduct](https://aws.github.io/code-of-conduct).
-For more information see the [Code of Conduct FAQ](https://aws.github.io/code-of-conduct-faq) or contact
-opensource-codeofconduct@amazon.com with any additional questions or comments.
 
+This project adheres to the Amazon Open Source Code of Conduct. By participating, you are expected to uphold this code.
 
-## Security issue notifications
-If you discover a potential security issue in this project we ask that you notify AWS/Amazon Security via our [vulnerability reporting page](http://aws.amazon.com/security/vulnerability-reporting/). Please do **not** create a public github issue.
+## How to Contribute
 
+### Reporting Issues
 
-## Licensing
+Before creating bug reports, please check the existing issues to avoid duplicates. When creating a bug report, include:
 
-See the [LICENSE](LICENSE) file for our project's licensing. We will ask you to confirm the licensing of your contribution.
+- A clear and descriptive title
+- Steps to reproduce the issue
+- Expected behavior
+- Actual behavior
+- Environment details (Terraform version, AWS provider version, etc.)
+- Relevant logs or error messages
+
+### Suggesting Enhancements
+
+Enhancement suggestions are welcome! Please provide:
+
+- A clear and descriptive title
+- A detailed description of the proposed enhancement
+- Use cases that would benefit from this enhancement
+- Any relevant examples or mockups
+
+### Pull Requests
+
+1. **Fork the repository** and create your branch from `dev`
+2. **Follow the development workflow**:
+   - Always work in the `dev` branch
+   - Test your changes thoroughly
+   - Ensure all existing tests pass
+3. **Code standards**:
+   - Follow Terraform best practices
+   - Use consistent naming conventions
+   - Add comments for complex logic
+   - Update documentation as needed
+4. **Commit messages**:
+   - Use conventional commit format: `type(scope): description`
+   - Examples: `feat(alb): add SSL certificate support`, `fix(ec2): resolve security group conflicts`
+5. **Testing**:
+   - Test your changes in a development environment
+   - Validate Terraform syntax with `terraform validate`
+   - Run security scans if applicable
+6. **Documentation**:
+   - Update README.md if needed
+   - Update relevant documentation files
+   - Add or update examples
+
+### Development Workflow
+
+```bash
+# 1. Fork and clone the repository
+git clone https://github.com/your-username/aws-terraform-gitlab-infra-orchestrator.git
+cd aws-terraform-gitlab-infra-orchestrator
+
+# 2. Create a feature branch from dev
+git checkout dev
+git checkout -b feature/your-feature-name
+
+# 3. Make your changes and test
+# ... make changes ...
+terraform validate
+terraform plan -var-file=tfvars/dev-terraform.tfvars
+
+# 4. Commit your changes
+git add .
+git commit -m "feat(component): add new feature"
+
+# 5. Push to your fork and create a pull request
+git push origin feature/your-feature-name
+```
+
+## Development Guidelines
+
+### Terraform Code Standards
+
+- Use consistent indentation (2 spaces)
+- Follow Terraform naming conventions
+- Use descriptive variable names
+- Add validation rules for variables where appropriate
+- Include descriptions for all variables and outputs
+- Use locals for complex expressions
+- Tag all resources consistently
+
+### Security Considerations
+
+- Never commit sensitive information (credentials, keys, etc.)
+- Use placeholder values in examples
+- Follow AWS security best practices
+- Implement least privilege access
+- Enable encryption where applicable
+
+### Documentation Standards
+
+- Keep documentation up to date
+- Use clear and concise language
+- Include practical examples
+- Document any prerequisites
+- Explain complex configurations
+
+## Testing
+
+### Local Testing
+
+Before submitting a pull request:
+
+1. **Validate Terraform syntax**:
+   ```bash
+   terraform validate
+   ```
+
+2. **Check formatting**:
+   ```bash
+   terraform fmt -check
+   ```
+
+3. **Run security scans** (if available):
+   ```bash
+   tfsec .
+   ```
+
+4. **Test in development environment**:
+   ```bash
+   terraform plan -var-file=tfvars/dev-terraform.tfvars
+   ```
+
+### Integration Testing
+
+- Test the complete deployment workflow
+- Verify cross-account role assumptions work
+- Validate state management functionality
+- Test promotion workflow between environments
+
+## Review Process
+
+1. **Automated checks**: All pull requests must pass automated checks
+2. **Code review**: At least one maintainer must review and approve
+3. **Testing**: Changes must be tested in a development environment
+4. **Documentation**: Documentation must be updated if applicable
+
+## Release Process
+
+This project follows semantic versioning (SemVer):
+
+- **MAJOR**: Breaking changes
+- **MINOR**: New features (backward compatible)
+- **PATCH**: Bug fixes (backward compatible)
+
+## Getting Help
+
+- Check the [README.md](README.md) for setup instructions
+- Review [ARCHITECTURE.md](docs/ARCHITECTURE.md) for technical details
+- Check [SECURITY-BEST-PRACTICES.md](docs/SECURITY-BEST-PRACTICES.md) for security guidance
+- Open an issue for questions or problems
+
+## Recognition
+
+Contributors will be recognized in the project documentation and release notes.
+
+Thank you for contributing to the Terraform Orchestration and Automation Framework!

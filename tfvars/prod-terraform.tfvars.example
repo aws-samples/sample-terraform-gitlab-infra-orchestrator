@@ -1,0 +1,237 @@
+# Production Environment Configuration
+# Smart Terraform Orchestrator - Multi-Account AWS Infrastructure
+
+# Project configuration
+project_name = "smart-terraform-orchestrator"
+gitlab_host  = "gitlab.company.com"
+gitlab_org   = "infrastructure-team"
+
+# Base modules configuration
+base_modules = {
+  ec2 = {
+    repository = "ec2-base-module"
+    version    = "v1.0.0"  # Use stable version for production
+  }
+  alb = {
+    repository = "tf-alb"
+    version    = "v1.0.0"  # Use stable version for production
+  }
+}
+
+# Primary module for this deployment
+primary_module = "ec2"
+
+# AWS configuration
+account_id            = "PRODUCTION_ACCOUNT_ID"
+org_master_account_id = "ORG_MASTER_ACCOUNT_ID"
+aws_region            = "us-east-1"
+environment           = "production"
+
+# ALB Configuration - Production scale with HTTPS
+alb_spec = {
+  linux-alb = {
+    vpc_name             = "production-vpc"
+    http_enabled         = true
+    https_enabled        = true  # HTTPS enabled for production
+    name                 = "linux-alb"
+    health_check_path    = "/health"
+    health_check_matcher = "200"
+    certificate_arn      = "arn:aws:acm:us-east-1:PRODUCTION_ACCOUNT_ID:certificate/CERTIFICATE_ID"
+  },
+  windows-alb = {
+    vpc_name             = "production-vpc"
+    http_enabled         = true
+    https_enabled        = true  # HTTPS enabled for production
+    name                 = "windows-alb"
+    health_check_path    = "/health"
+    health_check_matcher = "200"
+    certificate_arn      = "arn:aws:acm:us-east-1:PRODUCTION_ACCOUNT_ID:certificate/CERTIFICATE_ID"
+  }
+}
+
+# EC2 Configuration - Production scale with high availability
+ec2_spec = {
+  # Linux Web Server - Production Scale
+  "linux-webserver" = {
+    # Same ALB integration pattern
+    enable_alb_integration = true
+    alb_name               = "linux-alb"
+    
+    # Production-grade instances
+    instance_type          = "t3.large"
+    vpc_name               = "production-vpc"
+    key_name               = "production-keypair"
+    os_type                = "linux"
+    ami_name               = "amzn2-ami-hvm-*-x86_64-gp2"
+    root_volume_size       = 50
+
+    # Production security rules - public web access, restricted SSH
+    ingress_rules = [
+      {
+        from_port   = 22
+        to_port     = 22
+        protocol    = "tcp"
+        cidr_blocks = ["{PROD_MGMT_CIDR}"]
+        description = "SSH access from management subnet only"
+      },
+      {
+        from_port   = 80
+        to_port     = 80
+        protocol    = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+        description = "HTTP access from internet (ALB)"
+      },
+      {
+        from_port   = 443
+        to_port     = 443
+        protocol    = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+        description = "HTTPS access from internet (ALB)"
+      }
+    ]
+
+    # Production storage
+    additional_ebs_volumes = [
+      {
+        device_name = "/dev/sdf"
+        size        = 200
+        type        = "gp3"
+        encrypted   = true
+      }
+    ]
+    
+    subnet_name = "production-private-subnet-1"
+
+    # Enhanced monitoring for production
+    detailed_monitoring = true
+    
+    # Backup configuration
+    backup_retention_days = 30
+
+    tags = {
+      Application = "WebServer"
+      OS          = "Linux"
+      Tier        = "Web"
+      Environment = "Production"
+      Backup      = "Daily"
+    }
+  },
+
+  # Linux Application Server - Production Scale
+  "linux-appserver" = {
+    instance_type    = "t3.xlarge"
+    vpc_name         = "production-vpc"
+    key_name         = "production-keypair"
+    os_type          = "linux"
+    ami_name         = "amzn2-ami-hvm-*-x86_64-gp2"
+    root_volume_size = 100
+
+    ingress_rules = [
+      {
+        from_port   = 22
+        to_port     = 22
+        protocol    = "tcp"
+        cidr_blocks = ["{PROD_VPC_CIDR}"]
+        description = "SSH access from production VPC"
+      },
+      {
+        from_port   = 8080
+        to_port     = 8080
+        protocol    = "tcp"
+        cidr_blocks = ["{PROD_VPC_CIDR}"]
+        description = "Application port from production VPC"
+      }
+    ]
+
+    additional_ebs_volumes = [
+      {
+        device_name = "/dev/sdg"
+        size        = 500
+        type        = "gp3"
+        encrypted   = true
+      }
+    ]
+    
+    subnet_name = "production-private-subnet-2"
+
+    # Enhanced monitoring for production
+    detailed_monitoring = true
+    
+    # Backup configuration
+    backup_retention_days = 30
+
+    tags = {
+      Application = "AppServer"
+      OS          = "Linux"
+      Tier        = "Application"
+      Environment = "Production"
+      Backup      = "Daily"
+    }
+  },
+
+  # Windows Web Server - Production Scale
+  "windows-webserver" = {
+    # Same ALB integration pattern
+    enable_alb_integration = true
+    alb_name               = "windows-alb"
+    
+    # Production-grade Windows instances
+    instance_type          = "t3.xlarge"
+    vpc_name               = "production-vpc"
+    key_name               = "production-keypair"
+    os_type                = "windows"
+    ami_name               = "Windows_Server-2022-English-Full-Base-*"
+    root_volume_size       = 100
+
+    # Production Windows security rules - public web access, restricted RDP
+    ingress_rules = [
+      {
+        from_port   = 3389
+        to_port     = 3389
+        protocol    = "tcp"
+        cidr_blocks = ["{PROD_MGMT_CIDR}"]
+        description = "RDP access from management subnet only"
+      },
+      {
+        from_port   = 80
+        to_port     = 80
+        protocol    = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+        description = "HTTP access from internet (ALB)"
+      },
+      {
+        from_port   = 443
+        to_port     = 443
+        protocol    = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+        description = "HTTPS access from internet (ALB)"
+      }
+    ]
+
+    # Production storage
+    additional_ebs_volumes = [
+      {
+        device_name = "/dev/sdf"
+        size        = 500
+        type        = "gp3"
+        encrypted   = true
+      }
+    ]
+    
+    subnet_name = "production-private-subnet-1"
+
+    # Enhanced monitoring for production
+    detailed_monitoring = true
+    
+    # Backup configuration
+    backup_retention_days = 30
+
+    tags = {
+      Application = "WebServer"
+      OS          = "Windows2022"
+      Tier        = "Web"
+      Environment = "Production"
+      Backup      = "Daily"
+    }
+  }
+}

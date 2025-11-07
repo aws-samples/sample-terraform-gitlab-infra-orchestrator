@@ -1,0 +1,221 @@
+# Development Environment Configuration
+# Smart Terraform Orchestrator - Multi-Account AWS Infrastructure
+
+# Project configuration
+project_name = "smart-terraform-orchestrator"
+gitlab_host  = "gitlab.company.com"
+gitlab_org   = "infrastructure-team"
+
+# Base modules configuration
+base_modules = {
+  ec2 = {
+    repository = "ec2-base-module"
+    version    = "main"
+  }
+  alb = {
+    repository = "tf-alb"
+    version    = "main"
+  }
+}
+
+# Primary module for this deployment
+primary_module = "ec2"
+
+# AWS configuration
+account_id            = "DEV_ACCOUNT_ID"
+org_master_account_id = "ORG_MASTER_ACCOUNT_ID"
+aws_region            = "us-east-1"
+environment           = "dev"
+
+# ALB Configuration - Minimal for development
+alb_spec = {
+  linux-alb = {
+    vpc_name             = "dev-vpc"
+    http_enabled         = true
+    https_enabled        = false
+    name                 = "linux-alb"
+    access_logs_enabled  = false
+    health_check_path    = "/health"
+    health_check_matcher = "200"
+  },
+  windows-alb = {
+    vpc_name             = "dev-vpc"
+    http_enabled         = true
+    https_enabled        = false
+    name                 = "windows-alb"
+    access_logs_enabled  = false
+    health_check_path    = "/health"
+    health_check_matcher = "200"
+  }
+}
+
+# EC2 Configuration - Minimal for development
+ec2_spec = {
+  # Linux Web Server - Development Scale
+  "linux-webserver" = {
+    # ALB integration
+    enable_alb_integration = true
+    alb_name               = "linux-alb"
+    
+    # Minimal dev configuration
+    instance_type          = "t3.small"
+    vpc_name               = "dev-vpc"
+    key_name               = "dev-keypair"
+    os_type                = "linux"
+    ami_name               = "amzn2-ami-hvm-*-x86_64-gp2"
+    root_volume_size       = 20
+
+    # Dev security rules - VPC-only access for security
+    ingress_rules = [
+      {
+        from_port   = 22
+        to_port     = 22
+        protocol    = "tcp"
+        cidr_blocks = ["{DEV_VPC_CIDR}"]
+        description = "SSH access from dev VPC"
+      },
+      {
+        from_port   = 80
+        to_port     = 80
+        protocol    = "tcp"
+        cidr_blocks = ["{DEV_VPC_CIDR}"]
+        description = "HTTP access from dev VPC (ALB)"
+      },
+      {
+        from_port   = 443
+        to_port     = 443
+        protocol    = "tcp"
+        cidr_blocks = ["{DEV_VPC_CIDR}"]
+        description = "HTTPS access from dev VPC (ALB)"
+      }
+    ]
+
+    # Minimal storage for dev
+    additional_ebs_volumes = [
+      {
+        device_name = "/dev/sdf"
+        size        = 50
+        type        = "gp3"
+        encrypted   = true
+      }
+    ]
+    
+    subnet_name = "dev-private-subnet-1"
+
+    tags = {
+      Application = "WebServer"
+      OS          = "Linux"
+      Tier        = "Web"
+    }
+  },
+
+  # Linux Application Server - Development Scale
+  "linux-appserver" = {
+    instance_type    = "t3.medium"
+    vpc_name         = "dev-vpc"
+    key_name         = "dev-keypair"
+    os_type          = "linux"
+    ami_name         = "amzn2-ami-hvm-*-x86_64-gp2"
+    root_volume_size = 30
+
+    ingress_rules = [
+      {
+        from_port   = 22
+        to_port     = 22
+        protocol    = "tcp"
+        cidr_blocks = ["{DEV_VPC_CIDR}"]
+        description = "SSH access from dev VPC"
+      },
+      {
+        from_port   = 8080
+        to_port     = 8080
+        protocol    = "tcp"
+        cidr_blocks = ["{DEV_VPC_CIDR}"]
+        description = "Application port from dev VPC"
+      }
+    ]
+
+    additional_ebs_volumes = [
+      {
+        device_name = "/dev/sdg"
+        size        = 100
+        type        = "gp3"
+        encrypted   = true
+      }
+    ]
+    
+    subnet_name = "dev-private-subnet-2"
+
+    tags = {
+      Application = "AppServer"
+      OS          = "Linux"
+      Tier        = "Application"
+    }
+  },
+
+  # Windows Web Server - Development Scale
+  "windows-webserver" = {
+    # ALB integration
+    enable_alb_integration = true
+    alb_name               = "windows-alb"
+    
+    # Minimal Windows configuration
+    instance_type          = "t3.medium"
+    vpc_name               = "dev-vpc"
+    key_name               = "dev-keypair"
+    os_type                = "windows"
+    ami_name               = "Windows_Server-2022-English-Full-Base-*"
+    root_volume_size       = 50
+
+    # Windows security rules - VPC-only access for security
+    ingress_rules = [
+      {
+        from_port   = 3389
+        to_port     = 3389
+        protocol    = "tcp"
+        cidr_blocks = ["{DEV_VPC_CIDR}"]
+        description = "RDP access from dev VPC"
+      },
+      {
+        from_port   = 80
+        to_port     = 80
+        protocol    = "tcp"
+        cidr_blocks = ["{DEV_VPC_CIDR}"]
+        description = "HTTP access from dev VPC (ALB)"
+      },
+      {
+        from_port   = 443
+        to_port     = 443
+        protocol    = "tcp"
+        cidr_blocks = ["{DEV_VPC_CIDR}"]
+        description = "HTTPS access from dev VPC (ALB)"
+      }
+    ]
+
+    # Minimal storage for dev
+    additional_ebs_volumes = [
+      {
+        device_name = "/dev/sdf"
+        size        = 100
+        type        = "gp3"
+        encrypted   = true
+      }
+    ]
+    
+    subnet_name = "dev-private-subnet-1"
+
+    tags = {
+      Application = "WebServer"
+      OS          = "Windows2022"
+      Tier        = "Web"
+    }
+  }
+}
+
+# Common tags for all resources
+common_tags = {
+  Owner       = "infrastructure-team"
+  Environment = "dev"
+  Project     = "smart-terraform-orchestrator"
+  CostCenter  = "engineering"
+}

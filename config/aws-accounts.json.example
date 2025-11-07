@@ -1,0 +1,37 @@
+{
+  "shared_services": {
+    "account_id": "SHARED_SERVICES_ACCOUNT_ID",
+    "description": "Centralized Terraform state management and logging",
+    "region": "us-east-1",
+    "resources": {
+      "s3_bucket": "terraform-state-central-multi-env",
+      "dynamodb_table": "terraform-state-locks-common"
+    }
+  },
+  "dev": {
+    "account_id": "DEV_ACCOUNT_ID",
+    "description": "Development environment for rapid iteration",
+    "region": "us-east-1",
+    "vpc_name": "dev-vpc",
+    "deployment_type": "automatic"
+  },
+  "staging": {
+    "account_id": "STAGING_ACCOUNT_ID", 
+    "description": "Staging environment for pre-production testing",
+    "region": "us-east-1",
+    "vpc_name": "staging-vpc",
+    "deployment_type": "manual_approval"
+  },
+  "production": {
+    "account_id": "PRODUCTION_ACCOUNT_ID",
+    "description": "Production environment for live workloads",
+    "region": "us-east-1",
+    "vpc_name": "production-vpc",
+    "deployment_type": "manual_approval"
+  },
+  "organization": {
+    "master_account_id": "ORG_MASTER_ACCOUNT_ID",
+    "cross_account_role": "OrganizationAccountAccessRole",
+    "description": "AWS Organization master account for billing and management"
+  }
+}

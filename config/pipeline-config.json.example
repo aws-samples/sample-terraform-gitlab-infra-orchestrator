@@ -1,0 +1,29 @@
+{
+  "backend": {
+    "bucket_name": "REPLACE_WITH_YOUR_TERRAFORM_STATE_BUCKET",
+    "dynamodb_table": "REPLACE_WITH_YOUR_TERRAFORM_LOCKS_TABLE",
+    "region": "us-east-1",
+    "workspace_key_prefix": "environments"
+  },
+  "git": {
+    "base_url": "REPLACE_WITH_YOUR_GIT_BASE_URL",
+    "example": "https://gitlab.com or https://github.com"
+  },
+  "environments": {
+    "dev": {
+      "tfvars_file": "dev-terraform.tfvars",
+      "auto_deploy": true,
+      "manual_approval": false
+    },
+    "staging": {
+      "tfvars_file": "stg-terraform.tfvars",
+      "auto_deploy": false,
+      "manual_approval": true
+    },
+    "production": {
+      "tfvars_file": "prod-terraform.tfvars",
+      "auto_deploy": false,
+      "manual_approval": true
+    }
+  }
+}
