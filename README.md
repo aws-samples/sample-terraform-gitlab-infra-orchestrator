@@ -47,6 +47,17 @@ This solution implements the **Terraform Orchestration and Automation Framework*
 - **Cross-account role assumption** for secure deployments
 - **Universal module support** for any AWS service
 
+### GitLab Workflow Diagram
+
+![GitLab CI/CD Workflow](docs/GitFlow.jpg)
+
+**GitLab CI/CD Workflow Overview**:
+- **Branch-based promotion** with automated merge request creation
+- **Environment-specific pipelines** with manual approvals for staging/production
+- **Automated validation** and planning for all environments
+- **Cross-account deployments** with secure role assumptions
+- **State management** with centralized backend and locking
+
 ### Universal Module Support
 
 **Supported AWS Services** (via Platform Engineering Base Modules):
