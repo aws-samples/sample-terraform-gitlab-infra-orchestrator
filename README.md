@@ -10,6 +10,20 @@
 
 This solution implements the **Terraform Orchestration and Automation Framework** - designed for platform engineering teams to orchestrate ANY AWS service base modules with automated promotion workflows.
 
+## AWS Architecture Pattern Guide (APG)
+
+**This implementation is part of the official [AWS Architecture Pattern Guide (APG)](https://apg-library.amazonaws.com/content-viewer/4cf1a61e-2f34-459c-98f1-b5400c918a8e)** - providing enterprise-grade Terraform orchestration patterns for multi-account AWS environments.
+
+**APG Pattern Benefits**:
+- **AWS-validated architecture** following enterprise best practices
+- **Multi-account strategy** aligned with AWS Well-Architected Framework
+- **Security-first design** with cross-account role assumptions
+- **Production-ready** with comprehensive documentation and examples
+- **Scalable pattern** supporting any AWS service modules
+- **Cost optimization** through centralized state management and resource sharing
+- **Compliance ready** with built-in governance and audit capabilities
+- **Enterprise adoption** proven in large-scale AWS environments
+
 > **Important Note**: This repository uses **ALB and EC2 modules as demonstration examples** to show the orchestrator pattern. The same approach works for ANY AWS service base modules (VPC, RDS, Lambda, S3, Route53, EKS, etc.) created by your platform engineering team.
 
 ### Key Features
@@ -17,41 +31,21 @@ This solution implements the **Terraform Orchestration and Automation Framework*
 - **Universal Support**: Works with ANY AWS service modules (VPC, RDS, Lambda, S3, Route53, EKS, etc.)
 - **Automated Promotion**: Dev → Staging → Production with branch-based workflows
 - **Multi-Account Support**: Secure cross-account deployments using AWS Organizations
-- **�️M Security First**: Role-based access with least privilege principles
-- **� PlaOtform Engineering Ready**: Integrates with any base modules created by platform teams
-- **�  GitOps Ready**: Complete CI/CD integration with GitLab
+- **Security First**: Role-based access with least privilege principles
+- **Platform Engineering Ready**: Integrates with any base modules created by platform teams
+- **GitOps Ready**: Complete CI/CD integration with GitLab
 - **State Management**: Centralized state with locking and encryption
 
 ### Architecture Diagram
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    AWS Organization                          │
-├─────────────────────────────────────────────────────────────┤
-│  Master Account (Billing & Management)                     │
-│  └── OrganizationAccountAccessRole                         │
-├─────────────────────────────────────────────────────────────┤
-│  Shared Services Account                                    │
-│  ├── S3: {TERRAFORM_STATE_BUCKET}                          │
-│  ├── DynamoDB: {TERRAFORM_LOCKS_TABLE}                     │
-│  └── Cross-account state access                            │
-├─────────────────────────────────────────────────────────────┤
-│  Development Account                                        │
-│  ├── ANY AWS Services (VPC, RDS, Lambda, S3, etc.)        │
-│  ├── Example: ALB + EC2 (shown in this demo)              │
-│  └── Platform Engineering Base Modules                     │
-├─────────────────────────────────────────────────────────────┤
-│  Staging Account                                           │
-│  ├── ANY AWS Services (scaled configuration)              │
-│  ├── Example: ALB + EC2 (scaled for staging)              │
-│  └── Same modules, different sizing                        │
-├─────────────────────────────────────────────────────────────┤
-│  Production Account                                        │
-│  ├── ANY AWS Services (HA configuration)                  │
-│  ├── Example: ALB + EC2 (HA for production)               │
-│  └── Same modules, production-grade sizing                 │
-└─────────────────────────────────────────────────────────────┘
-```
+![Terraform Orchestration Framework Architecture](docs/Architecture_diagram.jpg)
+
+**Multi-Account Architecture Overview**:
+- **AWS Organization** with centralized billing and management
+- **Shared Services Account** for Terraform state and locking
+- **Environment-specific accounts** (Dev, Staging, Production)
+- **Cross-account role assumption** for secure deployments
+- **Universal module support** for any AWS service
 
 ### Universal Module Support
 
