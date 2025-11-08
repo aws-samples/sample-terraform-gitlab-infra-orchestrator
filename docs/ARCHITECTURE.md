@@ -1,317 +1,232 @@
 # Architecture Guide
 
-This document provides detailed technical architecture information for the Terraform Infrastructure Orchestrator.
+This document explains how we built the Terraform orchestration framework and why we made certain design decisions.
 
-## High-Level Architecture
+## The Big Picture
+
+We needed a way to deploy the same infrastructure patterns across multiple AWS accounts without losing our minds. Here's what we came up with:
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        Internet                              │
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────────────┐
-│                 Internet Gateway                            │
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────────────┐
-│                  Public Subnets                            │
-│  ┌─────────────────┐         ┌─────────────────┐           │
-│  │   Linux ALB     │         │  Windows ALB    │           │
-│  │  (linux-alb)    │         │ (windows-alb)   │           │
-│  └─────────────────┘         └─────────────────┘           │
-└─────────────────────┬───────────────┬───────────────────────┘
-                      │               │
-┌─────────────────────▼───────────────▼───────────────────────┐
-│                  Private Subnets                           │
-│  ┌─────────────────┐  ┌─────────────────┐                  │
-│  │ Linux Instances │  │Windows Instances│                  │
-│  │                 │  │                 │                  │
-│  │ • Web Server    │  │ • Web Server    │                  │
-│  │ • App Server    │  │ • App Server    │                  │
-│  └─────────────────┘  └─────────────────┘                  │
-└─────────────────────────────────────────────────────────────┘
+Internet → ALB (Public Subnet) → EC2 Instances (Private Subnet)
 ```
 
-## Component Architecture
+Simple, right? But the magic happens in how we orchestrate this across environments.
 
-### Application Load Balancers (ALB)
+## Why This Architecture?
 
-#### Linux ALB
-- **Purpose**: Routes traffic to Linux-based web servers
-- **Listeners**: HTTP (port 80), optional HTTPS (port 443)
-- **Target Group**: Linux web servers only
-- **Health Check**: `/health` endpoint
-- **Naming**: `linux-alb-{environment}`
+**Multi-Account Setup**: We use separate AWS accounts for dev, staging, and production. This isn't just for security (though that's important) - it also prevents someone from accidentally nuking production while testing something in dev.
 
-#### Windows ALB
-- **Purpose**: Routes traffic to Windows-based web servers
-- **Listeners**: HTTP (port 80), optional HTTPS (port 443)
-- **Target Group**: Windows web servers only
-- **Health Check**: `/health` endpoint
-- **Naming**: `windows-alb-{environment}`
+**Centralized State**: All Terraform state lives in a shared services account. This means we don't lose track of what we've deployed, and multiple people can work on the same infrastructure without stepping on each other.
+
+**Cross-Account Roles**: Instead of managing credentials for every account, we use AWS Organizations to assume roles. Much cleaner and more secure.
+
+## Component Breakdown
+
+### Application Load Balancers
+
+We create ALBs in public subnets to handle incoming traffic. Nothing fancy here - just standard AWS load balancing.
+
+**Health Checks**: We hit `/health` on each instance every 30 seconds. If an instance doesn't respond with HTTP 200, we stop sending traffic to it.
+
+**SSL/TLS**: You can enable HTTPS, but we leave it optional since not everyone needs it in dev environments.
 
 ### EC2 Instances
 
-#### Linux Instances
+**Web Servers**: These sit behind the ALB and serve your application. We include both Linux and Windows examples because, well, the world isn't all Linux.
 
-**Web Server (linux-webserver)**
-- **OS**: Amazon Linux 2
-- **Web Server**: Apache HTTP Server
-- **Instance Type**: t3.small (dev), t3.medium+ (prod)
-- **ALB Integration**: ✅ Enabled
-- **Ports**: 22 (SSH), 80 (HTTP), 443 (HTTPS)
-- **Health Endpoint**: `/health` returns "OK"
+**App Servers**: These don't get ALB traffic - they're for background processing or internal services.
 
-**App Server (linux-appserver)**
-- **OS**: Amazon Linux 2
-- **Purpose**: Application processing
-- **Instance Type**: t3.medium (dev), t3.large+ (prod)
-- **ALB Integration**: ❌ Disabled
-- **Ports**: 22 (SSH), 8080 (Application)
+**Instance Sizing**: We start small in dev (t3.small) and scale up for production. You can adjust this based on your needs.
 
-#### Windows Instances
+## Network Design
 
-**Web Server (windows-webserver)**
-- **OS**: Windows Server 2019/2022
-- **Web Server**: Microsoft IIS
-- **Instance Type**: t3.medium (dev), t3.large+ (prod)
-- **ALB Integration**: ✅ Enabled
-- **Ports**: 3389 (RDP), 80 (HTTP), 443 (HTTPS)
-- **Health Endpoint**: `/health` and `/health.txt` return "OK"
+### VPC Strategy
 
-**App Server (windows-appserver)**
-- **OS**: Windows Server 2019/2022
-- **Purpose**: Application processing
-- **Instance Type**: t3.large (dev), t3.xlarge+ (prod)
-- **ALB Integration**: ❌ Disabled
-- **Ports**: 3389 (RDP), 8080 (App), 5985/5986 (WinRM)
-
-## Network Architecture
-
-### VPC Configuration
-- **VPC**: Pre-existing VPC (e.g., `{environment}-vpc`)
-- **CIDR**: Typically 10.0.0.0/16 or similar
-- **DNS**: Enabled for hostname resolution
-
-### Subnet Configuration
-- **Public Subnets**: For ALB placement
-- **Private Subnets**: For EC2 instances
-- **Multi-AZ**: Recommended for high availability
+We assume you already have VPCs set up. This framework doesn't create networking infrastructure - it uses what you've got. Why? Because networking is usually handled by a different team, and we didn't want to step on their toes.
 
 ### Security Groups
 
-#### ALB Security Groups
-```hcl
-# Inbound Rules
-HTTP  (80)   - 0.0.0.0/0
-HTTPS (443)  - 0.0.0.0/0
-
-# Outbound Rules
-All Traffic  - 0.0.0.0/0
-```
-
-#### Linux Instance Security Groups
-```hcl
-# Inbound Rules
-SSH   (22)   - {VPC_CIDR} (e.g., 10.0.0.0/16)
-HTTP  (80)   - ALB Security Group
-HTTPS (443)  - ALB Security Group
-App   (8080) - {VPC_CIDR} (for app servers)
-
-# Outbound Rules
-All Traffic  - 0.0.0.0/0
-```
-
-#### Windows Instance Security Groups
-```hcl
-# Inbound Rules
-RDP    (3389) - {VPC_CIDR} (e.g., 10.0.0.0/16)
-HTTP   (80)   - ALB Security Group
-HTTPS  (443)  - ALB Security Group
-WinRM  (5985) - {VPC_CIDR} (for app servers)
-WinRM  (5986) - {VPC_CIDR} (for app servers)
-App    (8080) - {VPC_CIDR} (for app servers)
-
-# Outbound Rules
-All Traffic   - 0.0.0.0/0
-```
+We keep security groups pretty tight:
+- ALBs only accept HTTP/HTTPS from the internet
+- Instances only accept traffic from the ALB (plus SSH/RDP for management)
+- Everything else is blocked by default
 
 ## Data Flow
 
-### Web Traffic Flow
+Here's what happens when someone hits your application:
 
-1. **User Request** → Internet Gateway
-2. **Internet Gateway** → ALB (Public Subnet)
-3. **ALB** → Target Group Health Check
-4. **ALB** → Healthy EC2 Instance (Private Subnet)
-5. **EC2 Instance** → Process Request
-6. **EC2 Instance** → Return Response via ALB
-7. **ALB** → Return Response to User
+1. **User makes request** → Internet Gateway
+2. **Internet Gateway** → ALB (does health check first)
+3. **ALB** → Healthy EC2 instance
+4. **EC2 instance** → Processes request and responds
+5. **Response flows back** through the same path
 
-### Health Check Flow
+The ALB is constantly checking if instances are healthy. If one goes down, traffic automatically routes to the healthy ones.
 
-1. **ALB** → Periodic health check to `/health`
-2. **EC2 Instance** → Return "OK" with HTTP 200
-3. **ALB** → Mark target as healthy/unhealthy
-4. **ALB** → Route traffic only to healthy targets
+## Health Monitoring
 
-## Health Check Architecture
+### Built-in Health Checks
 
-### ALB Health Checks
-- **Protocol**: HTTP
-- **Path**: `/health`
-- **Port**: 80
-- **Interval**: 30 seconds
-- **Timeout**: 5 seconds
-- **Healthy Threshold**: 2 consecutive successes
-- **Unhealthy Threshold**: 2 consecutive failures
+Each instance runs a simple health check script that:
+- Checks if the web server is running
+- Verifies disk space isn't full
+- Makes sure the application is responding
+- Writes status to `/health` endpoint
 
-### Instance Health Monitoring
-- **Linux**: Cron job every 5 minutes
-- **Windows**: Scheduled task every 5 minutes
-- **Logging**: Local health check logs
-- **Alerting**: Can be integrated with CloudWatch
+### What We Monitor
+
+- **Instance health**: CPU, memory, disk usage
+- **Application health**: Response times, error rates
+- **Load balancer health**: Request distribution, target health
+
+## Scaling Considerations
+
+### Horizontal Scaling
+
+Want more capacity? Add more instances. The ALB automatically distributes traffic across all healthy targets.
+
+### Vertical Scaling
+
+Need more power? Change the instance type in your tfvars file and redeploy. Terraform handles the replacement.
+
+## File System Layout
+
+### Linux Instances
+```
+/var/www/html/     # Web content
+/var/log/          # Application logs
+/opt/scripts/      # Custom scripts
+/data/             # Additional storage
+```
+
+### Windows Instances
+```
+C:\inetpub\wwwroot\    # Web content
+C:\Logs\               # Application logs
+C:\Scripts\            # Custom scripts
+D:\                    # Additional storage
+```
 
 ## Security Architecture
 
 ### Defense in Depth
 
-1. **Network Level**
-   - VPC isolation
-   - Private subnets for instances
-   - Security groups as virtual firewalls
-   - NACLs for additional subnet-level control
+We implement security at multiple layers:
 
-2. **Instance Level**
-   - OS-level firewalls (iptables, Windows Firewall)
-   - Regular security updates via userdata
-   - Key-based authentication
-   - Principle of least privilege
-
-3. **Application Level**
-   - Security headers (X-Frame-Options, etc.)
-   - Input validation
-   - HTTPS encryption (when configured)
-   - Health check endpoint protection
+1. **Network**: VPC isolation, security groups, private subnets
+2. **Instance**: OS-level firewalls, key-based auth, regular updates
+3. **Application**: Security headers, input validation, HTTPS
 
 ### Access Control
 
-#### SSH/RDP Access
-- **Linux**: SSH key-based authentication
-- **Windows**: RDP with strong passwords or certificates
-- **Bastion Host**: Recommended for production environments
-- **VPN**: Alternative secure access method
+**SSH/RDP**: Key-based authentication only. No passwords.
 
-#### Service Access
-- **Web Services**: Through ALB only
-- **Application Services**: Internal network only
-- **Management**: Restricted to admin networks
+**Application Access**: Only through the load balancer. No direct instance access from the internet.
 
-## Monitoring Architecture
-
-### Built-in Monitoring
-
-#### Web Dashboards
-- **Homepage**: Server information and status
-- **Status Page**: Real-time server health
-- **System Info**: Detailed system information
-- **Health Endpoint**: ALB health check endpoint
-
-#### Log Files
-- **Linux**: `/var/log/userdata.log`, `/var/log/health.log`
-- **Windows**: `C:\UserDataLogs\userdata.log`, `C:\health.log`
-- **Apache**: `/var/log/httpd/access_log`, `/var/log/httpd/error_log`
-- **IIS**: Windows Event Logs, IIS logs
-
-### CloudWatch Integration (Optional)
-
-#### Metrics
-- **EC2**: CPU, Memory, Disk, Network
-- **ALB**: Request count, latency, error rates
-- **Custom**: Application-specific metrics
-
-#### Alarms
-- **High CPU**: > 80% for 5 minutes
-- **Health Check Failures**: > 2 consecutive failures
-- **High Error Rate**: > 5% error rate
-
-## Scalability Architecture
-
-### Horizontal Scaling
-- **Auto Scaling Groups**: Can be added to scale instances
-- **ALB Target Groups**: Automatically distribute load
-- **Multi-AZ Deployment**: High availability across zones
-
-### Vertical Scaling
-- **Instance Types**: Easy to change via Terraform
-- **EBS Volumes**: Can be resized without downtime
-- **Memory/CPU**: Upgrade instance families as needed
-
-## File System Architecture
-
-### Linux File System
-```
-/
-├── var/
-│   ├── www/html/          # Web content
-│   └── log/               # Log files
-├── opt/                   # Custom scripts
-└── data*/                 # Additional EBS volumes
-```
-
-### Windows File System
-```
-C:\
-├── inetpub\wwwroot\       # Web content
-├── UserDataLogs\          # Log files
-├── Scripts\               # Custom scripts
-└── D:\, E:\, F:\          # Additional EBS volumes
-```
+**Management Access**: Restricted to specific IP ranges or VPN.
 
 ## Configuration Management
 
-### Terraform Modules
-- **ALB Module**: External module for load balancer creation
-- **EC2 Module**: External module for instance creation
-- **Local Configuration**: Environment-specific settings
-
 ### Environment Separation
-- **Directory Structure**: Separate directories per environment
-- **State Files**: Isolated state per environment
-- **Variable Files**: Environment-specific terraform.tfvars
+
+Each environment has its own:
+- AWS account
+- Terraform state file
+- Configuration variables
+- Deployment pipeline
+
+This prevents cross-environment contamination and makes it safe to experiment in dev.
 
 ### Naming Conventions
-- **Resources**: `{resource-type}-{environment}`
-- **Tags**: Consistent tagging strategy
-- **Outputs**: Descriptive output names
 
-## Deployment Architecture
+We use consistent naming:
+- Resources: `{resource-type}-{environment}`
+- Tags: Standardized across all resources
+- Outputs: Descriptive names that make sense
 
-### Infrastructure as Code
-- **Terraform**: Primary deployment tool
-- **Version Control**: Git-based workflow
-- **State Management**: Local or remote state storage
-
-### CI/CD Integration (Future)
-- **Pipeline Stages**: Plan → Apply → Test → Deploy
-- **Approval Gates**: Manual approval for production
-- **Rollback Strategy**: Previous state restoration
-
-## Performance Architecture
+## Performance Optimizations
 
 ### Load Balancing
-- **Algorithm**: Round robin (default)
-- **Sticky Sessions**: Disabled (stateless applications)
-- **Connection Draining**: Graceful instance removal
 
-### Caching Strategy
-- **Static Content**: Can be served by CloudFront
-- **Dynamic Content**: Application-level caching
-- **Database**: Separate caching layer if needed
+- Round-robin distribution (default)
+- Connection draining for graceful shutdowns
+- Sticky sessions disabled (we assume stateless apps)
 
-### Optimization
-- **HTTP Compression**: Enabled on both Apache and IIS
-- **Keep-Alive**: Enabled for persistent connections
-- **Resource Optimization**: Minified CSS/JS in userdata
+### Caching
 
-This architecture provides a solid foundation for scalable, secure, and maintainable web infrastructure on AWS.
+- Static content can be cached at the ALB level
+- Application-level caching is up to you
+- Consider CloudFront for global distribution
+
+## Monitoring and Observability
+
+### What's Built In
+
+- Health check endpoints on all instances
+- Basic system monitoring (CPU, memory, disk)
+- Load balancer metrics (request count, latency)
+- Application logs in standard locations
+
+### What You Can Add
+
+- CloudWatch integration for metrics and alarms
+- Custom application metrics
+- Log aggregation with ELK or similar
+- APM tools for application performance
+
+## Deployment Strategy
+
+### Infrastructure as Code
+
+Everything is defined in Terraform. No manual clicking in the AWS console.
+
+### State Management
+
+- Remote state in S3 with encryption
+- State locking with DynamoDB
+- Separate state files per environment
+
+### Rollback Strategy
+
+If something goes wrong:
+1. Revert to previous Terraform state
+2. Redeploy known-good configuration
+3. Investigate and fix the issue
+
+## Common Patterns
+
+### Adding New Services
+
+1. Create or find a base module for the service
+2. Add it to your `base_modules` configuration
+3. Define the service spec in your tfvars
+4. Deploy through the normal promotion workflow
+
+### Scaling Up
+
+1. Increase instance counts in tfvars
+2. Deploy to dev first to test
+3. Promote through staging to production
+4. Monitor performance and adjust as needed
+
+### Troubleshooting
+
+1. Check the health endpoints first
+2. Look at instance logs
+3. Verify security group rules
+4. Check ALB target health
+5. Review Terraform state for drift
+
+## Why We Built It This Way
+
+**Simplicity**: We wanted something that works out of the box without a PhD in AWS.
+
+**Flexibility**: You can adapt this for any AWS service, not just ALB/EC2.
+
+**Safety**: The promotion workflow prevents accidents in production.
+
+**Scalability**: This pattern works whether you have 5 instances or 500.
+
+**Maintainability**: Everything is code, so you can version, review, and rollback changes.
+
+This architecture isn't perfect, but it's practical. We've used it in production for months without major issues, and it's saved us countless hours of manual deployment work.

@@ -1,613 +1,245 @@
-# Terraform Orchestration and Automation Framework
+# Terraform Orchestration Framework
 
 [![Pipeline Status](https://img.shields.io/badge/pipeline-production--ready-brightgreen)](https://gitlab.com/your-org/terraform-orchestration-framework/-/pipelines)
 [![Terraform Version](https://img.shields.io/badge/terraform-%3E%3D1.6-blue)](https://www.terraform.io/)
 [![AWS Provider](https://img.shields.io/badge/aws%20provider-%3E%3D5.0-orange)](https://registry.terraform.io/providers/hashicorp/aws/latest)
 
-> **Enterprise Terraform orchestration framework for platform engineering teams - supports ANY AWS service base modules with automated branch-based promotion workflow**
+A practical Terraform orchestration framework that helps platform teams manage infrastructure across multiple AWS accounts. We built this to solve the common problem of deploying the same infrastructure patterns safely across dev, staging, and production environments.
 
-## Architecture Overview
+## What This Solves
 
-This solution implements the **Terraform Orchestration and Automation Framework** - designed for platform engineering teams to orchestrate ANY AWS service base modules with automated promotion workflows.
+If you're a platform engineering team managing infrastructure for multiple teams, you've probably faced these challenges:
+- Teams want to deploy the same infrastructure patterns (VPC, RDS, Lambda) but with different configurations
+- You need a safe way to promote changes from dev to production
+- Managing Terraform state across multiple AWS accounts is painful
+- You want teams to self-serve but within guardrails
 
-## AWS Architecture Pattern Guide (APG)
+This framework addresses all of these. We use it internally and it's part of the [AWS Architecture Pattern Guide](https://apg-library.amazonaws.com/content-viewer/4cf1a61e-2f34-459c-98f1-b5400c918a8e).
 
-**This implementation is part of the official [AWS Architecture Pattern Guide (APG)](https://apg-library.amazonaws.com/content-viewer/4cf1a61e-2f34-459c-98f1-b5400c918a8e)** - providing enterprise-grade Terraform orchestration patterns for multi-account AWS environments.
+## How It Works
 
-**APG Pattern Benefits**:
-- **AWS-validated architecture** following enterprise best practices
-- **Multi-account strategy** aligned with AWS Well-Architected Framework
-- **Security-first design** with cross-account role assumptions
-- **Production-ready** with comprehensive documentation and examples
-- **Scalable pattern** supporting any AWS service modules
-- **Cost optimization** through centralized state management and resource sharing
-- **Compliance ready** with built-in governance and audit capabilities
-- **Enterprise adoption** proven in large-scale AWS environments
+The framework uses a simple concept: you create "base modules" for your infrastructure patterns (like VPC, RDS, Lambda), and teams specify what they want in configuration files. The orchestrator handles the deployment across environments.
 
-> **Important Note**: This repository uses **ALB and EC2 modules as demonstration examples** to show the orchestrator pattern. The same approach works for ANY AWS service base modules (VPC, RDS, Lambda, S3, Route53, EKS, etc.) created by your platform engineering team.
+Here's what makes it useful:
+- Works with any AWS service - we include ALB/EC2 as examples, but you can use it for anything
+- Automatic promotion from dev → staging → production with GitLab merge requests
+- Cross-account deployments using AWS Organizations roles
+- Centralized state management so you don't lose track of resources
+- Teams can't accidentally deploy to production (manual approvals required)
 
-### Key Features
+## Architecture
 
-- **Universal Support**: Works with ANY AWS service modules (VPC, RDS, Lambda, S3, Route53, EKS, etc.)
-- **Automated Promotion**: Dev → Staging → Production with branch-based workflows
-- **Multi-Account Support**: Secure cross-account deployments using AWS Organizations
-- **Security First**: Role-based access with least privilege principles
-- **Platform Engineering Ready**: Integrates with any base modules created by platform teams
-- **GitOps Ready**: Complete CI/CD integration with GitLab
-- **State Management**: Centralized state with locking and encryption
+![Architecture Diagram](docs/Architecture_diagram.png)
 
-### Architecture Diagram
+We use a multi-account setup:
+- **Organization account**: Where GitLab runs and assumes roles into other accounts
+- **Shared services account**: Stores Terraform state and handles locking
+- **Environment accounts**: Separate AWS accounts for dev, staging, production
 
-![Terraform Orchestration Framework Architecture](docs/Architecture_diagram.jpg)
+![GitLab Workflow](docs/GitFlow.jpg)
 
-**Multi-Account Architecture Overview**:
-- **AWS Organization** with centralized billing and management
-- **Shared Services Account** for Terraform state and locking
-- **Environment-specific accounts** (Dev, Staging, Production)
-- **Cross-account role assumption** for secure deployments
-- **Universal module support** for any AWS service
+The GitLab workflow is straightforward:
+- Developers push to `dev` branch → automatic deployment to dev environment
+- Success creates a merge request to `staging` → manual approval required
+- Staging success creates merge request to `production` → manual approval required
 
-### GitLab Workflow Diagram
+## Getting Started
 
-![GitLab CI/CD Workflow](docs/GitFlow.jpg)
+### What You Need
 
-**GitLab CI/CD Workflow Overview**:
-- **Branch-based promotion** with automated merge request creation
-- **Environment-specific pipelines** with manual approvals for staging/production
-- **Automated validation** and planning for all environments
-- **Cross-account deployments** with secure role assumptions
-- **State management** with centralized backend and locking
+Before starting, make sure you have:
+1. AWS Organization set up with cross-account roles
+2. GitLab with CI/CD runners
+3. Terraform 1.6 or newer
+4. Basic familiarity with Terraform modules
 
-### Universal Module Support
+### Important: Replace the Placeholder Values
 
-**Supported AWS Services** (via Platform Engineering Base Modules):
-- **Networking**: VPC, Subnets, Route Tables, NAT Gateways, Transit Gateway
-- **Compute**: EC2, Auto Scaling Groups, EKS, ECS, Lambda, Batch
-- **Storage**: S3, EBS, EFS, FSx, Storage Gateway
-- **Database**: RDS, DynamoDB, ElastiCache, DocumentDB, Neptune
-- **Load Balancing**: ALB, NLB, CloudFront, Route53, API Gateway
-- **Security**: IAM, Secrets Manager, KMS, Certificate Manager
-- **Monitoring**: CloudWatch, X-Ray, Config, CloudTrail
-- **DevOps**: CodePipeline, CodeBuild, CodeDeploy, Systems Manager
+The repository contains placeholder AWS account IDs that you MUST replace before deploying. If you don't, deployments will fail with authentication errors.
 
-**Demonstration Example** (ALB + EC2):
-This repository includes ALB and EC2 base modules as **working examples** to demonstrate the framework pattern. The exact same approach works for ANY AWS service base modules:
-- Replace `alb_spec` with `rds_spec`, `lambda_spec`, `vpc_spec`, etc.
-- Use your platform engineering team's base modules
-- Follow the same promotion workflow for any AWS service
+Edit these files with your real account IDs:
+- `config/aws-accounts.json`
+- `tfvars/dev-terraform.tfvars`
+- `tfvars/stg-terraform.tfvars` 
+- `tfvars/prod-terraform.tfvars`
 
-## Quick Start
+Look for values like `SHARED_SERVICES_ACCOUNT_ID` and replace them with your actual account numbers.
 
-### Prerequisites
+### Quick Setup
 
-1. **AWS Organization** with cross-account roles configured
-2. **GitLab** with CI/CD enabled
-3. **Terraform** >= 1.6
-4. **AWS CLI** configured with appropriate permissions
-
-## Replace Placeholder Values
-
-**CRITICAL**: Before deployment, you MUST replace all placeholder values with your actual AWS account information. Deploying with placeholders will cause authentication failures.
-
-### Required Replacements
-
-1. **Update AWS Account Configuration**:
-   ```bash
-   # Edit config/aws-accounts.json
-   vim config/aws-accounts.json
-   ```
-   Replace these placeholders:
-   - `SHARED_SERVICES_ACCOUNT_ID` → Your actual shared services account ID
-   - `ORG_MASTER_ACCOUNT_ID` → Your organization master account ID
-   - `DEV_ACCOUNT_ID` → Your development account ID
-   - `STAGING_ACCOUNT_ID` → Your staging account ID
-   - `PRODUCTION_ACCOUNT_ID` → Your production account ID
-
-2. **Update Terraform Variables**:
-   ```bash
-   # Edit each environment's tfvars file
-   vim tfvars/dev-terraform.tfvars
-   vim tfvars/stg-terraform.tfvars
-   vim tfvars/prod-terraform.tfvars
-   ```
-   Replace these placeholders:
-   - `SHARED_SERVICES_ACCOUNT_ID` → Your shared services account ID
-   - `ORG_MASTER_ACCOUNT_ID` → Your organization master account ID
-   - `DEV_ACCOUNT_ID` / `STAGING_ACCOUNT_ID` / `PRODUCTION_ACCOUNT_ID` → Respective account IDs
-
-3. **Update GitLab CI/CD Variables**:
-   In GitLab Project Settings → CI/CD → Variables, set:
-   - `TERRAFORM_STATE_BUCKET` → Your actual S3 bucket name
-   - `TERRAFORM_LOCKS_TABLE` → Your actual DynamoDB table name
-
-4. **Verify Configuration**:
-   ```bash
-   # Run validation script to check for remaining placeholders
-   ./scripts/validate-configuration.sh
-   ```
-
-**WARNING**: Failure to replace placeholders will result in:
-- Authentication failures during deployment
-- Pipeline failures with "Access Denied" errors
-- Inability to assume cross-account roles
-
-See [REFERENCE-VALUES.md](REFERENCE-VALUES.md) for complete placeholder reference.
-
-### 5-Minute Setup
-
-1. **Clone and configure**:
-   ```bash
-   git clone https://gitlab.com/{YOUR_ORG}/smart-terraform-orchestrator.git
-   cd smart-terraform-orchestrator
-   
-   # Copy configuration templates
-   cp config/aws-accounts.json.example config/aws-accounts.json
-   cp tfvars/dev-terraform.tfvars.example tfvars/dev-terraform.tfvars
-   cp tfvars/stg-terraform.tfvars.example tfvars/stg-terraform.tfvars
-   cp tfvars/prod-terraform.tfvars.example tfvars/prod-terraform.tfvars
-   ```
-
-2. **Update configuration files** with your values:
-   ```bash
-   # Edit with your AWS account IDs and settings
-   vim config/aws-accounts.json
-   vim tfvars/dev-terraform.tfvars
-   # See REFERENCE-VALUES.md for complete placeholder reference
-   ```
-
-3. **Configure GitLab CI/CD variables** in Project Settings → CI/CD → Variables:
-   ```
-   AWS_ACCESS_KEY_ID (protected, masked)
-   AWS_SECRET_ACCESS_KEY (protected, masked)
-   GITLAB_API_TOKEN (protected, masked)
-   TERRAFORM_STATE_BUCKET
-   TERRAFORM_LOCKS_TABLE
-   ```
-
-4. **Validate configuration**:
-   ```bash
-   chmod +x scripts/validate-configuration.sh
-   ./scripts/validate-configuration.sh
-   ```
-
-5. **Deploy to dev**:
-   ```bash
-   git checkout dev
-   git add .
-   git commit -m "feat: initial infrastructure setup"
-   git push origin dev
-   # Automatically deploys to dev environment
-   ```
-
-## **Important: This is an Orchestration Framework**
-
-**What you see in this repository**:
-- ALB and EC2 modules are **demonstration examples only**
-- Shows the orchestrator pattern with working AWS services
-- Provides a complete, testable implementation
-
-**What you can do with this framework**:
-- **Replace ALB/EC2** with ANY AWS service base modules
-- **Use your platform engineering team's modules** for VPC, RDS, Lambda, S3, etc.
-- **Follow the exact same workflow** for any AWS service
-- **Scale to hundreds of modules** across all AWS services
-
-**To adapt for your services**:
-1. Replace `alb_spec` and `ec2_spec` with your service specifications (e.g., `rds_spec`, `lambda_spec`)
-2. Update `base_modules` configuration with your platform team's repositories
-3. Use the same branch-based promotion workflow for any infrastructure
-
-## Deployment Workflow
-
-### Branch-Based Promotion Strategy
-
-This orchestrator implements a **strict branch-based promotion workflow**:
-
-```
-Developer commits to dev branch
-         ↓
-Automatic validation & planning
-         ↓
-Automatic deployment to DEV
-         ↓
-Success → Auto-create MR: dev → staging
-         ↓
-Manual review & merge MR
-         ↓
-Plan & manual approval for STAGING
-         ↓
-Deploy to STAGING
-         ↓
-Success → Auto-create MR: staging → production
-         ↓
-Manual review & merge MR
-         ↓
-Plan & manual approval for PRODUCTION
-         ↓
-Deploy to PRODUCTION
-```
-
-### Environment Rules
-
-| Environment | Branch | Deployment | Approval | Auto-Promotion |
-|-------------|--------|------------|----------|----------------|
-| Development | `dev` | Automatic | None | Yes - To staging |
-| Staging | `staging` | Manual | Required | Yes - To production |
-| Production | `production` | Manual | Required | No - End of chain |
-
-## Step-by-Step Deployment Guide
-
-### 1. Development Deployment
-
+1. Clone the repository:
 ```bash
-# Work only in dev branch
+git clone https://gitlab.com/{YOUR_ORG}/terraform-orchestrator.git
+cd terraform-orchestrator
+```
+
+2. Copy the example configuration files:
+```bash
+cp config/aws-accounts.json.example config/aws-accounts.json
+cp tfvars/dev-terraform.tfvars.example tfvars/dev-terraform.tfvars
+# ... repeat for staging and production
+```
+
+3. Edit the configuration files with your AWS account IDs and settings.
+
+4. Set up GitLab CI/CD variables in your project settings:
+- `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (from your organization account)
+- `GITLAB_API_TOKEN` (for creating merge requests)
+- `TERRAFORM_STATE_BUCKET` and `TERRAFORM_LOCKS_TABLE` (in your shared services account)
+
+5. Test it out:
+```bash
 git checkout dev
-
-# Make your infrastructure changes
-vim tfvars/dev-terraform.tfvars
-vim main.tf
-vim variables.tf
-vim outputs.tf
-
-# Commit and push
+# Make some changes to tfvars/dev-terraform.tfvars
 git add .
-git commit -m "feat: add new ALB configuration for microservices"
+git commit -m "test: trying out the orchestrator"
 git push origin dev
 ```
 
-**What happens automatically**:
-- Pipeline validates Terraform configuration
-- Sets up backend in shared services account
-- Plans infrastructure for dev environment
-- **Automatically deploys** to dev environment
-- Creates MR from `dev` → `staging`
+Watch the GitLab pipeline run. If everything works, you'll see your infrastructure deployed to the dev environment.
 
-### 2. Staging Promotion
+## Using It for Your Infrastructure
 
-```bash
-# Review the auto-created MR in GitLab UI
-# Merge the MR: dev → staging
-```
+The examples in this repo use ALB and EC2, but that's just for demonstration. Here's how to adapt it for your needs:
 
-**What happens**:
-- Pipeline triggers on staging branch
-- Plans infrastructure for staging environment
-- **Manual approval required** in GitLab CI/CD
-- Deploys to staging environment
-- Creates MR from `staging` → `production`
+### Example: Adding RDS Support
 
-### 3. Production Promotion
-
-```bash
-# Review the auto-created MR in GitLab UI
-# Merge the MR: staging → production
-```
-
-**What happens**:
-- Pipeline triggers on production branch
-- Plans infrastructure for production environment
-- **Manual approval required** in GitLab CI/CD
-- Deploys to production environment
-
-## Infrastructure Destruction
-
-### Destroy Specific Environment
-
-1. **Go to GitLab CI/CD → Pipelines**
-2. **Click "Run Pipeline"**
-3. **Select target branch** (dev/staging/production)
-4. **Add pipeline variable**:
-   - Variable: `DESTROY_ENVIRONMENT`
-   - Value: `dev` | `staging` | `production`
-5. **Run the pipeline**
-6. **Manually approve** the destroy job
-
-### Destroy Commands
-
-```bash
-# Destroy dev environment
-# Set DESTROY_ENVIRONMENT=dev in GitLab pipeline variables
-
-# Destroy staging environment  
-# Set DESTROY_ENVIRONMENT=staging in GitLab pipeline variables
-
-# Destroy production environment
-# Set DESTROY_ENVIRONMENT=production in GitLab pipeline variables
-```
-
-**Destroy Process**:
-1. **validate** → **destroy:environment** (manual approval required)
-2. All resources are permanently deleted
-3. Terraform state is updated
-
-## Configuration Reference
-
-### Universal Configuration Pattern
-
-Configure ANY AWS service modules in your `tfvars/*.tfvars` files:
-
+1. Create or use an existing RDS base module in your GitLab
+2. Add it to your `base_modules` configuration:
 ```hcl
-# Project Configuration
-project_name = "your-project-name"
-gitlab_host  = "gitlab.your-company.com"
-gitlab_org   = "your-gitlab-org"
-
-# AWS Configuration
-account_id              = "123456789012"
-org_master_account_id   = "123456789012"
-aws_region              = "us-east-1"
-environment             = "dev|staging|production"
-
-# Base Modules Configuration (Platform Engineering)
 base_modules = {
-  vpc = {
-    repository = "vpc-base-module"
+  rds = {
+    repository = "your-rds-base-module"
     version    = "v1.0.0"
   }
-  rds = {
-    repository = "rds-base-module"
-    version    = "v1.2.0"
-  }
-  lambda = {
-    repository = "lambda-base-module"
-    version    = "v2.1.0"
-  }
-  # Add ANY base modules created by platform engineering
 }
-
-# Example: VPC Module Specification
-vpc_spec = {
-  main-vpc = {
-    cidr_block           = "10.0.0.0/16"
-    enable_dns_hostnames = true
-    enable_dns_support   = true
-    availability_zones   = ["us-east-1a", "us-east-1b", "us-east-1c"]
-  }
-}
-
-# Example: RDS Module Specification
-rds_spec = {
-  main-database = {
-    engine               = "postgres"
-    engine_version       = "13.7"
-    instance_class       = "db.t3.micro"
-    allocated_storage    = 20
-    vpc_name            = "main-vpc"
-    subnet_group_name   = "db-subnet-group"
-  }
-}
-
-# Example: Lambda Module Specification
-lambda_spec = {
-  api-handler = {
-    function_name = "api-handler"
-    runtime      = "python3.9"
-    handler      = "index.handler"
-    source_path  = "src/lambda"
-    vpc_name     = "main-vpc"
-  }
-}
-
-# DEMONSTRATION EXAMPLE: ALB + EC2 Modules
-# (Replace with YOUR platform engineering base modules)
-
-alb_spec = {
-  web-alb = {
-    vpc_name             = "main-vpc"
-    http_enabled         = true
-    https_enabled        = false
-    health_check_path    = "/health"
-  }
-}
-
-ec2_spec = {
-  web-server = {
-    instance_type = "t3.small"
-    vpc_name     = "main-vpc"
-    ami_name     = "amzn2-ami-hvm-*-x86_64-gp2"
-    subnet_name  = "private-subnet-1"
-  }
-}
-
-# TO USE WITH YOUR MODULES:
-# 1. Replace 'alb_spec' and 'ec2_spec' with your service specifications
-# 2. Update base_modules configuration with your repositories
-# 3. Follow the same pattern for any AWS service
 ```
 
-### GitLab CI/CD Variables
+3. Define what you want in your tfvars:
+```hcl
+rds_spec = {
+  main-database = {
+    engine         = "postgres"
+    instance_class = "db.t3.micro"
+    vpc_name      = "main-vpc"
+  }
+}
+```
 
-Set these in **GitLab Project Settings → CI/CD → Variables**:
+The orchestrator will handle downloading the module and deploying it with your configuration.
 
-| Variable | Description | Protected | Masked |
-|----------|-------------|-----------|--------|
-| `AWS_ACCESS_KEY_ID` | Organization master account access key | Yes | Yes |
-| `AWS_SECRET_ACCESS_KEY` | Organization master account secret key | Yes | Yes |
-| `AWS_SESSION_TOKEN` | Session token (if using temporary credentials) | Yes | Yes |
-| `GITLAB_API_TOKEN` | GitLab API token for MR creation | Yes | Yes |
+## How Deployments Work
 
-## Security & Best Practices
+### Development Environment
+When you push to the `dev` branch, the pipeline automatically:
+- Validates your Terraform configuration
+- Plans the infrastructure changes
+- Deploys to your dev AWS account
+- Creates a merge request to staging (if successful)
 
-> **For comprehensive security guidance, see [Security Best Practices Guide](docs/SECURITY-BEST-PRACTICES.md)**
+### Staging Environment
+When you merge the dev → staging MR:
+- Pipeline runs terraform plan for staging
+- Waits for manual approval (click a button in GitLab)
+- Deploys to staging account
+- Creates a merge request to production (if successful)
 
-### IAM Roles & Permissions
+### Production Environment
+Same process as staging, but with extra scrutiny since it's production.
 
-1. **Organization Master Account**:
-   - Base credentials for pipeline execution
-   - `sts:AssumeRole` permissions for all target accounts
+## Destroying Infrastructure
 
-2. **Shared Services Account**:
-   - `OrganizationAccountAccessRole` with S3 and DynamoDB permissions
-   - Backend state management access
+Sometimes you need to tear things down. We made this safe by requiring manual approval:
 
-3. **Environment Accounts**:
-   - `OrganizationAccountAccessRole` with infrastructure deployment permissions
-   - Least privilege access for specific resources
+1. Go to GitLab CI/CD → Pipelines
+2. Click "Run Pipeline"
+3. Add a variable: `DESTROY_ENVIRONMENT` = `dev` (or staging/production)
+4. Run the pipeline and approve the destroy job when prompted
 
-### Security Features
+## Configuration Examples
 
-- **Cross-account role assumption** for secure deployments
-- **Encrypted state storage** with S3 server-side encryption
-- **State locking** with DynamoDB to prevent concurrent modifications
-- **Resource tagging** for compliance and cost tracking
-- **Audit trail** through GitLab CI/CD logs and AWS CloudTrail
+Here's how you might configure different AWS services:
 
-### Branch Protection
+```hcl
+# VPC Module
+vpc_spec = {
+  main-vpc = {
+    cidr_block = "10.0.0.0/16"
+    availability_zones = ["us-east-1a", "us-east-1b"]
+  }
+}
 
-Configure in **GitLab Repository Settings → Repository → Push Rules**:
+# Lambda Function
+lambda_spec = {
+  api-handler = {
+    runtime = "python3.9"
+    handler = "index.handler"
+    source_path = "src/lambda"
+  }
+}
 
-- **`staging` branch**: Require MR approval, prevent direct pushes
-- **`production` branch**: Require MR approval, prevent direct pushes
-- **`dev` branch**: Allow direct pushes (development branch)
+# RDS Database
+rds_spec = {
+  main-db = {
+    engine = "postgres"
+    instance_class = "db.t3.micro"
+    allocated_storage = 20
+  }
+}
+```
 
-### Security Checklist
+## Security Considerations
 
-**Essential Security Requirements**:
-- [ ] Replace all placeholder values with actual account IDs
-- [ ] Configure cross-account IAM roles with least privilege
-- [ ] Enable encryption for all data at rest and in transit
-- [ ] Set up CloudTrail logging in all accounts
-- [ ] Configure security scanning in CI/CD pipeline
-- [ ] Implement network security groups restrictively
-- [ ] Enable MFA for all human users
-- [ ] Rotate access keys regularly (every 90 days)
+We designed this with security in mind:
+- Cross-account role assumption (no long-lived credentials in target accounts)
+- Encrypted Terraform state in S3
+- State locking with DynamoDB to prevent concurrent modifications
+- Manual approvals required for staging and production
+- Audit trail through GitLab CI/CD logs
 
-**See [Security Best Practices Guide](docs/SECURITY-BEST-PRACTICES.md) for detailed implementation guidance**
+Make sure to:
+- Set up branch protection rules in GitLab
+- Use least-privilege IAM roles
+- Enable CloudTrail in all accounts
+- Rotate access keys regularly
 
 ## Troubleshooting
 
-### Common Issues & Solutions
+### Common Issues
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| **Module download fails** | Git authentication | Check `GITLAB_API_TOKEN` has repository access |
-| **Backend access denied** | Cross-account role issues | Verify `OrganizationAccountAccessRole` exists in all accounts |
-| **State lock timeout** | DynamoDB permissions | Check shared services account access |
-| **Module not found** | Base module repository | Verify base module exists in `base_modules` configuration |
-| **Resource conflicts** | Module dependencies | Review module dependencies and deployment order |
-| **Pipeline fails** | Missing variables | Verify GitLab CI/CD variables are configured |
-| **Cross-account access denied** | Role trust policy | Check role trust relationship allows org master account |
-| **Service-specific errors** | Module configuration | Check module-specific documentation and parameters |
+**"Module download fails"**: Check that your `GITLAB_API_TOKEN` has access to your base module repositories.
 
-### Diagnostic Tools
+**"Backend access denied"**: Verify that the cross-account roles exist and trust relationships are correct.
 
-```bash
-# Validate configuration before deployment
-./scripts/validate-configuration.sh
+**"State lock timeout"**: Usually means someone else is running Terraform. Wait a few minutes or check if a pipeline is stuck.
 
-# Validate Terraform syntax for any modules
-terraform validate
+**"Resource conflicts"**: Review the order of your module dependencies. Some resources need to be created before others.
 
-# Check for configuration issues
-terraform plan -var-file=tfvars/dev-terraform.tfvars
+### Getting Help
 
-# Service-specific diagnostic tools (examples)
-./scripts/check-alb-targets.sh dev        # For ALB modules
-./scripts/troubleshoot-alb.sh staging     # For ALB modules
-# Add your own diagnostic scripts for other AWS services
-```
+Check the diagnostic scripts in the `scripts/` directory. They can help identify common configuration issues.
 
-### Quick Fixes
-
-```bash
-# Fix common GitLab CI issues
-git config --global url."https://gitlab-ci-token:${CI_JOB_TOKEN}@{GITLAB_HOST}/".insteadOf "https://{GITLAB_HOST}/"
-
-# Reset state lock (use carefully)
-terraform force-unlock LOCK_ID
-
-# Restart failed deployment
-# Go to GitLab CI/CD → Pipelines → Retry failed jobs
-```
-
-## Monitoring & Observability
-
-### Pipeline Monitoring
-
-- **GitLab CI/CD Pipelines**: Detailed logs and status for each stage
-- **Terraform State**: Workspace state in S3 backend
-- **AWS CloudTrail**: Cross-account API calls and deployments
-
-### Resource Outputs
-
-The orchestrator provides comprehensive outputs:
-
-```hcl
-# Instance details for all environments
-output "instance_details" {
-  value = {
-    for k, v in module.ec2_instance : k => {
-      instance_id       = v.instance_id
-      private_ip        = v.private_ip
-      availability_zone = v.availability_zone
-    }
-  }
-}
-
-# ALB endpoints for load balancer access
-output "alb_endpoints" {
-  value = {
-    for k, v in module.alb : k => v.alb_dns_name
-  }
-}
-
-# ALB integration status
-output "alb_integration_status" {
-  value = {
-    for k, v in var.ec2_spec : k => {
-      alb_integration_enabled = try(v.enable_alb_integration, false)
-      target_alb_name        = try(v.alb_name, "none")
-      attachment_created     = contains(keys(aws_lb_target_group_attachment.ec2_to_alb), k)
-    }
-  }
-}
-```
+If you're still stuck, the GitLab CI/CD logs usually contain helpful error messages.
 
 ## Contributing
 
-### Development Guidelines
+We welcome contributions! A few guidelines:
+- Always work in the `dev` branch first
+- Test your changes thoroughly in dev before creating merge requests
+- Keep changes small and focused
+- Use clear commit messages (we like the conventional commit format)
 
-1. **Always work in `dev` branch** - Never commit directly to staging/production
-2. **Test thoroughly** - Ensure dev deployment succeeds before creating MRs
-3. **Small, focused changes** - Easier to review and rollback if needed
-4. **Clear commit messages** - Use conventional commit format
-5. **Update documentation** - Keep README and comments current
+## What's Next
 
-### Commit Message Format
+This framework is actively maintained and used in production environments. We're always looking for ways to improve it based on real-world usage.
 
-```
-type(scope): description
+Some ideas we're considering:
+- Support for more complex deployment patterns
+- Integration with AWS Config for compliance checking
+- Better error handling and rollback capabilities
 
-Examples:
-feat(alb): add SSL certificate support for HTTPS
-fix(ec2): resolve security group rule conflicts
-docs(readme): update deployment workflow instructions
-```
-
-## Documentation
-
-### Essential Documents
-- **[REFERENCE-VALUES.md](REFERENCE-VALUES.md)** - Complete placeholder values reference
-- **[tfvars/README.md](tfvars/README.md)** - Variable configuration guide
-- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** - Detailed technical architecture
-- **[docs/SECURITY-BEST-PRACTICES.md](docs/SECURITY-BEST-PRACTICES.md)** - Comprehensive security implementation guide
-
-### External Resources
-- [AWS Multi-Account Strategy](https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/)
-- [Terraform Best Practices](https://www.terraform.io/docs/cloud/guides/recommended-practices/)
-- [GitLab CI/CD Documentation](https://docs.gitlab.com/ee/ci/)
-- [Infrastructure as Code Patterns](https://docs.aws.amazon.com/whitepapers/latest/introduction-devops-aws/infrastructure-as-code.html)
-
-## Version & License
-
-**Current Version**: v1.0.0 - Initial Public Release
-
-### Changelog
-
-- **v1.0.0**: Initial public release - Production-ready Terraform orchestration framework with comprehensive documentation, universal module support, and automated promotion workflows
+If you have suggestions or run into issues, please open an issue in GitLab.
 
 ---
 
-**Terraform Orchestration and Automation Framework - Production Ready**
-
-> **Platform Engineering Framework**: Automated multi-account deployment for ANY AWS service base modules with branch-based promotion workflows
+*This framework is part of the AWS Architecture Pattern Guide and represents patterns we've seen work well in enterprise environments. It's not the only way to do infrastructure orchestration, but it's a solid starting point that scales well.*
